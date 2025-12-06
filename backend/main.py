@@ -9,6 +9,7 @@ import re
 from dotenv import load_dotenv
 from docx import Document
 import openpyxl
+from openpyxl.cell.cell import MergedCell
 
 from app.ingest import extract_text
 from app.parser import parse_to_schema
@@ -20,6 +21,8 @@ TEMP_DIR = os.path.join(DATA_DIR, "temp")
 # Allow template both under backend/data/temp and project-root/data/temp
 TEMPLATE_RESUME = os.path.join(TEMP_DIR, "temp_職務経歴書.docx")
 TEMPLATE_RESUME_ALT = os.path.abspath(os.path.join(BASE_DIR, "..", "data", "temp", "temp_職務経歴書.docx"))
+TEMPLATE_SKILL = os.path.join(TEMP_DIR, "temp_スキルシート.xlsx")
+TEMPLATE_SKILL_ALT = os.path.abspath(os.path.join(BASE_DIR, "..", "data", "temp", "temp_スキルシート.xlsx"))
 os.makedirs(TEMP_DIR, exist_ok=True)
 
 load_dotenv(os.path.join(BASE_DIR, ".env"))
@@ -344,25 +347,96 @@ def save_docx(schema: dict, out_path: str):
 
 
 def save_xlsx(schema: dict, out_path: str):
+    template_path = TEMPLATE_SKILL if os.path.isfile(TEMPLATE_SKILL) else None
+    if not template_path and os.path.isfile(TEMPLATE_SKILL_ALT):
+        template_path = TEMPLATE_SKILL_ALT
+
+    period_raw = schema.get("期間", "")
+    period = _format_period_jp(period_raw)
+    project = schema.get("案件名", "案件名未設定")
+    summary = schema.get("担当プロジェクト概要", "未設定")
+    company = schema.get("勤務先", "未設定")
+    role = schema.get("役割・役職", "未設定")
+    scale = schema.get("規模・人数", {})
+    scale_text = f"チーム人数={scale.get('チーム人数', '未設定')}, 規模={scale.get('規模', '未設定')}"
+    duties_raw = schema.get("業務内容")
+    if isinstance(duties_raw, str):
+        duties = _norm_text([ln for ln in duties_raw.splitlines()])
+    else:
+        duties = _norm_text(duties_raw)
+    env = _norm_text(schema.get("環境"))
+    langs = _norm_text(schema.get("言語"))
+    tools = _norm_text(schema.get("ツール"))
+    frameworks = _norm_text(schema.get("フレームワーク"))
+    libraries = _norm_text(schema.get("ライブラリ"))
+    phases = set(schema.get("担当工程：要件定義、基本設計、詳細設計、実装、単テスト、結テスト、保守運用", []) or [])
+
+    def mark(phase: str) -> str:
+        return "〇" if phase in phases else ""
+
+    replacements = {
+        "<期間>": period,
+        "<案件名>": project,
+        "<担当プロジェクト概要>": summary,
+        "<勤務先>": company,
+        "<役割>": role,
+        "<役割・役職>": role,
+        "<規模・人数>": scale_text,
+        "<業務内容>": duties,
+        "<環境>": env,
+        "<言語>": langs,
+        "<ツール>": tools,
+        "<フレームワーク>": frameworks,
+        "<ライブラリ>": libraries,
+        "<要件定義>": mark("要件定義"),
+        "<基本設計>": mark("基本設計"),
+        "<詳細設計>": mark("詳細設計"),
+        "<実装>": mark("実装"),
+        "<単テスト>": mark("単テスト"),
+        "<結テスト>": mark("結テスト"),
+        "<保守運用>": mark("保守運用"),
+    }
+
+    def replace_val(val):
+        if val is None:
+            return val
+        text = str(val)
+        for k, v in replacements.items():
+            if k in text:
+                text = text.replace(k, str(v))
+        return text
+
+    if template_path:
+        wb = openpyxl.load_workbook(template_path)
+        for ws in wb.worksheets:
+            for row in ws.iter_rows():
+                for cell in row:
+                    if isinstance(cell, MergedCell):
+                        continue
+                    cell.value = replace_val(cell.value)
+        wb.save(out_path)
+        return
+
+    # Fallback simple sheet when template missing
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "SkillSheet"
     rows = [
         ("スキルシート", ""),
-        ("期間", schema.get("期間", "")),
-        ("勤務先", schema.get("勤務先", "")),
-        ("案件名", schema.get("案件名", "")),
-        ("担当プロジェクト概要", schema.get("担当プロジェクト概要", "")),
-        ("業務内容", schema.get("業務内容", "")),
-        ("環境", "\n".join(schema.get("環境", []) or [])),
-        ("言語", "\n".join(schema.get("言語", []) or [])),
-        ("ツール", "\n".join(schema.get("ツール", []) or [])),
-        ("フレームワーク", "\n".join(schema.get("フレームワーク", []) or [])),
-        ("ライブラリ", "\n".join(schema.get("ライブラリ", []) or [])),
-        ("規模・人数_チーム人数", schema.get("規模・人数", {}).get("チーム人数", "")),
-        ("規模・人数_規模", schema.get("規模・人数", {}).get("規模", "")),
-        ("役割・役職", schema.get("役割・役職", "")),
-        ("担当工程", "\n".join(schema.get("担当工程：要件定義、基本設計、詳細設計、実装、単テスト、結テスト、保守運用", []) or [])),
+        ("期間", period),
+        ("勤務先", company),
+        ("案件名", project),
+        ("担当プロジェクト概要", summary),
+        ("業務内容", duties),
+        ("環境", env),
+        ("言語", langs),
+        ("ツール", tools),
+        ("フレームワーク", frameworks),
+        ("ライブラリ", libraries),
+        ("規模・人数_チーム人数", scale.get("チーム人数", "")),
+        ("規模・人数_規模", scale.get("規模", "")),
+        ("役割・役職", role),
+        ("担当工程", "\n".join(phases) if phases else ""),
     ]
     for r in rows:
         ws.append(r)

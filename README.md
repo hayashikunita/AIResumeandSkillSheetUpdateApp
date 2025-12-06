@@ -111,7 +111,6 @@ Invoke-WebRequest -Uri "http://localhost:8000/extract?model=gpt-4.1" -Method Pos
 2. **Text**: `/generate/text` でテキスト素案を生成、プレビューとダウンロードリンクを表示。
 3. **Resume**: `/generate/resume` で職務経歴書 DOCX を生成しダウンロード。
 4. **SkillSheet**: `/generate/skill-sheet` でスキルシート XLSX を生成しダウンロード。
-5. **Temp Files**: `/generate/temp-files` で `data/temp` のテンプレファイルを更新し、同内容のダウンロードリンクを取得。
 
 ### 今後の拡張の余地
 - フロントエンド（React/TypeScript）によるアップロードUI

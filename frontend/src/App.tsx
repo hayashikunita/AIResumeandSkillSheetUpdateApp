@@ -3,7 +3,7 @@ import axios from 'axios';
 
 const backend = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
-type Tab = 'extract' | 'text' | 'resume' | 'skill' | 'temp';
+type Tab = 'extract' | 'text' | 'resume' | 'skill';
 
 type GenResponse = {
   download_path?: string;
@@ -168,7 +168,6 @@ function App() {
           {navBtn('text', 'Text')}
           {navBtn('resume', 'Resume')}
           {navBtn('skill', 'SkillSheet')}
-          {navBtn('temp', 'Temp Files')}
         </div>
       </div>
 
@@ -308,29 +307,6 @@ function App() {
           </div>
           {smallInfo('スキーマ timestamp', schemaTs)}
           {!schema && <div style={{ color: '#475569' }}>先に抽出または「最新スキーマを呼び出す」を実行してください。</div>}
-        </div>
-      )}
-
-      {isActive('temp') && (
-        <div style={card}>
-          <div style={sectionTitle}>5. Temp ファイルを更新</div>
-          <p style={{ marginTop: 0, color: '#475569' }}>テンプレート名に合わせて `data/temp` 配下を上書きし、同内容をダウンロード用に保存します。</p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-            <button onClick={() => triggerGen('/generate/temp-files', 'temp_files')} disabled={busy} style={{ padding: '8px 12px' }}>
-              tempファイルを生成/更新
-            </button>
-            {['resume_txt', 'skill_txt', 'resume_docx', 'skill_xlsx'].map((k) =>
-              downloads[k] ? (
-                <a key={k} href={`${backend}${downloads[k]}`} style={{ padding: '8px 12px' }} target="_blank" rel="noreferrer">
-                  {k} DL
-                </a>
-              ) : null
-            )}
-          </div>
-          {smallInfo('スキーマ timestamp', schemaTs)}
-          <div style={{ color: '#475569', fontSize: 13 }}>
-            更新先: backend `data/temp/` の固定ファイルと、ダウンロード用に timestamp フォルダへスナップショット保存します。
-          </div>
         </div>
       )}
 
