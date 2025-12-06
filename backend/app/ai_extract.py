@@ -89,7 +89,7 @@ def extract_with_openai(texts: List[str], model: Optional[str] = None) -> Dict:
     merged = "\n\n".join(t for t in texts if t)
     prompt = USER_PROMPT_TEMPLATE.format(schema=json.dumps(SCHEMA_JSON, ensure_ascii=False), text=merged)
 
-    model_name = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    model_name = model or os.getenv("OPENAI_MODEL", "gpt-5")
 
     req_kwargs = {
         "model": model_name,

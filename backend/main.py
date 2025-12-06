@@ -187,7 +187,7 @@ def ai_strengths_and_pr(schema: dict, model: Optional[str] = None) -> Optional[d
     if not api_key:
         return None
     client = OpenAI(api_key=api_key)
-    model_name = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    model_name = model or os.getenv("OPENAI_MODEL", "gpt-5")
 
     sys_prompt = (
         "You are a Japanese career branding assistant. Given a JSON schema of a project, "
@@ -628,7 +628,7 @@ async def extract(
 
     ai_used = False
     ai_error = None
-    model_used = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    model_used = model or os.getenv("OPENAI_MODEL", "gpt-5")
     try:
         prompt_texts = [f"# File: {rec['filename']}\n{rec['raw_text']}" for rec in file_records]
         schema = extract_with_openai(prompt_texts, model=model_used)
