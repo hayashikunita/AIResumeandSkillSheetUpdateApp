@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/c812e6c2-b1b2-4fe4-9d43-9b4e9e25e9cc
 
 データ加工時
 
-https://github.com/user-attachments/assets/b6d77fd6-f4c8-4e61-9758-5f3a597e2bc3
+https://github.com/user-attachments/assets/9bfbcaf0-ba59-49ba-ba07-c4995963491b
 
 
 
