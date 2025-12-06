@@ -2,6 +2,17 @@
 
 Windows環境で、PDF/Word/Excel/TXT/画像(PNG/JPG/TIFF)から指定スキーマのJSONを抽出し、テキスト/DOCX/XLSX/テンプレートファイルを生成する FastAPI + React アプリです。
 
+
+AI抽出時
+
+https://github.com/user-attachments/assets/c812e6c2-b1b2-4fe4-9d43-9b4e9e25e9cc
+
+データ加工時
+
+https://github.com/user-attachments/assets/b6d77fd6-f4c8-4e61-9758-5f3a597e2bc3
+
+
+
 ### セットアップ (backend)
 ```powershell
 python -m venv .venv
