@@ -137,12 +137,15 @@ function App() {
       onClick={() => setActiveTab(tab)}
       style={{
         padding: '10px 16px',
-        borderRadius: 8,
-        border: isActive(tab) ? '1px solid #0f766e' : '1px solid #d0d7de',
-        background: isActive(tab) ? '#0f766e' : '#f8fafc',
+        borderRadius: 999,
+        border: isActive(tab) ? '1px solid #0ea5e9' : '1px solid #d0d7de',
+        background: isActive(tab)
+          ? 'linear-gradient(135deg, #0284c7 0%, #0ea5e9 50%, #38bdf8 100%)'
+          : '#f8fafc',
         color: isActive(tab) ? '#fff' : '#0f172a',
         cursor: 'pointer',
-        fontWeight: 600,
+        fontWeight: 700,
+        boxShadow: isActive(tab) ? '0 8px 18px rgba(14,165,233,0.25)' : 'none',
       }}
     >
       {label}
@@ -152,9 +155,11 @@ function App() {
   const card: React.CSSProperties = {
     background: '#fff',
     border: '1px solid #e2e8f0',
-    borderRadius: 12,
-    padding: 16,
-    boxShadow: '0 4px 14px rgba(0,0,0,0.04)',
+    borderRadius: 14,
+    padding: 18,
+    boxShadow: '0 12px 28px rgba(15,23,42,0.06)',
+    position: 'relative',
+    overflow: 'hidden',
   };
 
   const sectionTitle: React.CSSProperties = {
@@ -169,104 +174,154 @@ function App() {
     </div>
   );
 
+  const pageStyle: React.CSSProperties = {
+    maxWidth: 1150,
+    margin: '32px auto',
+    padding: '0 20px 48px',
+    fontFamily: '"Space Grotesk", "Segoe UI", "Hiragino Sans", sans-serif',
+  };
+
+  const hero: React.CSSProperties = {
+    background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 50%, #a855f7 100%)',
+    color: '#fff',
+    borderRadius: 18,
+    padding: '18px 20px',
+    boxShadow: '0 18px 30px rgba(14,165,233,0.28)',
+    display: 'flex',
+    justifyContent: 'space-between',
+    gap: 16,
+    alignItems: 'center',
+    position: 'relative',
+    overflow: 'hidden',
+  };
+
+  const backdrop: React.CSSProperties = {
+    background: 'radial-gradient(circle at 20% 20%, rgba(255,255,255,0.18), transparent 35%), radial-gradient(circle at 80% 30%, rgba(255,255,255,0.12), transparent 30%), radial-gradient(circle at 60% 80%, rgba(255,255,255,0.12), transparent 25%)',
+    inset: 0,
+    position: 'absolute',
+    pointerEvents: 'none',
+  };
+
+  const primaryBtn: React.CSSProperties = {
+    padding: '9px 14px',
+    borderRadius: 10,
+    border: 'none',
+    background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+    color: '#fff',
+    fontWeight: 700,
+    cursor: 'pointer',
+    boxShadow: '0 8px 18px rgba(34,197,94,0.35)',
+  };
+
   return (
-    <div style={{ maxWidth: 1100, margin: '32px auto', padding: '0 20px', fontFamily: 'Inter, "Helvetica Neue", Arial, sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div>
-          <h2 style={{ margin: 0 }}>AI Resume & SkillSheet</h2>
-          <div style={{ color: '#475569', marginTop: 4 }}>抽出 → テキスト → 職務経歴書 → スキルシート → 自分の強み → 自己PR</div>
+    <div style={{ background: 'linear-gradient(180deg, #f4f7fb 0%, #e9eff7 100%)', minHeight: '100vh' }}>
+      <div style={pageStyle}>
+        <div style={hero}>
+          <div style={{ position: 'absolute', inset: 0, opacity: 0.7 }}>
+            <div style={backdrop} />
+          </div>
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <h2 style={{ margin: 0, letterSpacing: 0.2, fontSize: 22 }}>AI Resume & SkillSheet</h2>
+            <div style={{ marginTop: 4, opacity: 0.92, fontWeight: 600 }}>
+              抽出 → テキスト → 職務経歴書 → スキルシート → 自分の強み → 自己PR
+            </div>
+          </div>
+          <div style={{ position: 'relative', zIndex: 1, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {navBtn('extract', 'Extract')}
+            {navBtn('text', 'Text')}
+            {navBtn('resume', 'Resume')}
+            {navBtn('skill', 'SkillSheet')}
+            {navBtn('strengths', '自分の強み')}
+            {navBtn('selfpr', '自己PR')}
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {navBtn('extract', 'Extract')}
-          {navBtn('text', 'Text')}
-          {navBtn('resume', 'Resume')}
-          {navBtn('skill', 'SkillSheet')}
-          {navBtn('strengths', '自分の強み')}
-          {navBtn('selfpr', '自己PR')}
-        </div>
-      </div>
+
+        <div style={{ display: 'grid', gap: 16, marginTop: 18 }}>
 
       {error && <div style={{ color: '#b91c1c', marginBottom: 12 }}>{error}</div>}
 
       {isActive('extract') && (
         <div style={card}>
-          <div style={sectionTitle}>1. データ抽出</div>
-          <p style={{ marginTop: 0, color: '#475569' }}>PDF/Word/Excel/TXT/画像から1案件分の情報を抽出し、スキーマJSONを生成します。</p>
-          <div style={{ marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <input
-              type="file"
-              multiple
-              onChange={(e) => upsertFiles(e.target.files)}
-              accept=".pdf,.docx,.xlsx,.txt,.png,.jpg,.jpeg,.bmp,.tif,.tiff"
-            />
-            <button
-              onClick={onUpload}
-              disabled={(!files.length && !manualText.trim()) || busy}
-              style={{ padding: '8px 12px' }}
-            >
-              {loading['upload'] ? '抽出中…' : '抽出する'}
-            </button>
-            <button onClick={() => setFiles([])} disabled={!files.length || busy} style={{ padding: '8px 12px' }}>
-              クリア
-            </button>
-            <button onClick={loadLatestSchema} disabled={busy} style={{ padding: '8px 12px' }}>
-              最新のスキーマを呼び出す
-            </button>
-          </div>
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg, rgba(56,189,248,0.08) 0%, rgba(125,211,252,0.04) 60%, rgba(59,130,246,0.06) 100%)' }} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={sectionTitle}>1. データ抽出</div>
+            <p style={{ marginTop: 0, color: '#475569' }}>PDF/Word/Excel/TXT/画像から1案件分の情報を抽出し、スキーマJSONを生成します。</p>
+            <div style={{ marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <input
+                type="file"
+                multiple
+                onChange={(e) => upsertFiles(e.target.files)}
+                accept=".pdf,.docx,.xlsx,.txt,.png,.jpg,.jpeg,.bmp,.tif,.tiff"
+              />
+              <button
+                onClick={onUpload}
+                disabled={(!files.length && !manualText.trim()) || busy}
+                style={primaryBtn}
+              >
+                {loading['upload'] ? '抽出中…' : '抽出する'}
+              </button>
+              <button onClick={() => setFiles([])} disabled={!files.length || busy} style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff' }}>
+                クリア
+              </button>
+              <button onClick={loadLatestSchema} disabled={busy} style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff' }}>
+                最新のスキーマを呼び出す
+              </button>
+            </div>
 
-          <div style={{ marginBottom: 12 }}>
-            <label htmlFor="manualText"><strong>自由入力（テキスト直接貼り付け）</strong></label>
-            <textarea
-              id="manualText"
-              value={manualText}
-              onChange={(e) => setManualText(e.target.value)}
-              rows={8}
-              style={{ width: '100%', marginTop: 8, padding: 10, borderRadius: 8, border: '1px solid #cbd5e1' }}
-              placeholder="職務経歴や業務内容を貼り付け。ファイルなしでも送信できます。"
-            />
-          </div>
-
-          {files.length > 0 && (
             <div style={{ marginBottom: 12 }}>
-              <strong>選択中のファイル ({files.length})</strong>
-              <ul>
-                {files.map((f) => {
-                  const key = `${f.name}-${f.size}-${f.lastModified}`;
-                  const kb = Math.max(1, Math.round(f.size / 1024));
-                  return (
-                    <li key={key}>
-                      {f.name} ({kb} KB)
-                      <button onClick={() => removeFile(key)} style={{ marginLeft: 8 }} disabled={busy}>
-                        削除
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
+              <label htmlFor="manualText" style={{ fontWeight: 700 }}>自由入力（テキスト直接貼り付け）</label>
+              <textarea
+                id="manualText"
+                value={manualText}
+                onChange={(e) => setManualText(e.target.value)}
+                rows={8}
+                style={{ width: '100%', marginTop: 8, padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc' }}
+                placeholder="職務経歴や業務内容を貼り付け。ファイルなしでも送信できます。"
+              />
             </div>
-          )}
 
-          {schema && (
-            <div style={{ marginTop: 12 }}>
-              <strong>抽出スキーマ</strong>
-              {smallInfo('timestamp', schemaTs)}
-              <pre style={{ background: '#f8fafc', padding: 12, borderRadius: 8, whiteSpace: 'pre-wrap' }}>
-                {JSON.stringify(schema, null, 2)}
-              </pre>
-            </div>
-          )}
+            {files.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <strong>選択中のファイル ({files.length})</strong>
+                <ul style={{ paddingLeft: 16 }}>
+                  {files.map((f) => {
+                    const key = `${f.name}-${f.size}-${f.lastModified}`;
+                    const kb = Math.max(1, Math.round(f.size / 1024));
+                    return (
+                      <li key={key} style={{ marginTop: 6 }}>
+                        {f.name} ({kb} KB)
+                        <button onClick={() => removeFile(key)} style={{ marginLeft: 8, padding: '4px 8px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff' }} disabled={busy}>
+                          削除
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+
+            {schema && (
+              <div style={{ marginTop: 12 }}>
+                <strong>抽出スキーマ</strong>
+                {smallInfo('timestamp', schemaTs)}
+                <pre style={{ background: '#0f172a', color: '#e2e8f0', padding: 12, borderRadius: 12, whiteSpace: 'pre-wrap', fontSize: 12 }}>
+                  {JSON.stringify(schema, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
       {isActive('text') && (
         <div style={card}>
           <div style={sectionTitle}>2. テキスト生成</div>
-          <p style={{ marginTop: 0, color: '#475569' }}>スキーマからテキスト素案を作ります（pre-view）。</p>
+          <p style={{ marginTop: 0, color: '#475569' }}>スキーマからテキスト素案を作ります（preview）。生成前でも強み/自己PRを確認できます。</p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-            <button onClick={() => triggerGen('/generate/text', 'text')} disabled={busy} style={{ padding: '8px 12px' }}>
+            <button onClick={() => triggerGen('/generate/text', 'text')} disabled={busy} style={primaryBtn}>
               テキスト生成
             </button>
-            <button onClick={loadLatestSchema} disabled={busy} style={{ padding: '8px 12px' }}>
+            <button onClick={loadLatestSchema} disabled={busy} style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff' }}>
               最新スキーマ読み込み
             </button>
             {downloads['text'] && (
@@ -308,7 +363,7 @@ function App() {
           <div style={sectionTitle}>3. 職務経歴書 (DOCX)</div>
           <p style={{ marginTop: 0, color: '#475569' }}>スキーマから職務経歴書の雛形を作成します。</p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-            <button onClick={() => triggerGen('/generate/resume', 'resume_docx')} disabled={busy} style={{ padding: '8px 12px' }}>
+            <button onClick={() => triggerGen('/generate/resume', 'resume_docx')} disabled={busy} style={primaryBtn}>
               DOCX生成
             </button>
             {downloads['resume_docx'] && (
@@ -327,7 +382,7 @@ function App() {
           <div style={sectionTitle}>4. スキルシート (XLSX)</div>
           <p style={{ marginTop: 0, color: '#475569' }}>スキーマからスキルシートを生成します。</p>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-            <button onClick={() => triggerGen('/generate/skill-sheet', 'skill_xlsx')} disabled={busy} style={{ padding: '8px 12px' }}>
+            <button onClick={() => triggerGen('/generate/skill-sheet', 'skill_xlsx')} disabled={busy} style={primaryBtn}>
               XLSX生成
             </button>
             {downloads['skill_xlsx'] && (
@@ -349,18 +404,18 @@ function App() {
             value={strengths}
             onChange={(e) => setStrengths(e.target.value)}
             rows={8}
-            style={{ width: '100%', marginTop: 8, padding: 10, borderRadius: 8, border: '1px solid #cbd5e1' }}
+            style={{ width: '100%', marginTop: 8, padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc' }}
             placeholder="例: セキュリティ設計とID管理領域での経験、要件定義〜結合テストまでの一貫対応..."
           />
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
             <button
               onClick={() => setSchema((prev: any) => ({ ...(prev || {}), '自分の強み': strengths }))}
               disabled={!schema || busy}
-              style={{ padding: '8px 12px' }}
+              style={primaryBtn}
             >
               スキーマに保存
             </button>
-            <button onClick={loadLatestSchema} disabled={busy} style={{ padding: '8px 12px' }}>
+            <button onClick={loadLatestSchema} disabled={busy} style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff' }}>
               最新スキーマを呼び出す
             </button>
           </div>
@@ -376,18 +431,18 @@ function App() {
             value={selfPr}
             onChange={(e) => setSelfPr(e.target.value)}
             rows={10}
-            style={{ width: '100%', marginTop: 8, padding: 10, borderRadius: 8, border: '1px solid #cbd5e1' }}
+            style={{ width: '100%', marginTop: 8, padding: 12, borderRadius: 12, border: '1px solid #cbd5e1', background: '#f8fafc' }}
             placeholder="例: ID基盤の設計・構築に強みがあり、要件定義から移行までリードした経験..."
           />
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
             <button
               onClick={() => setSchema((prev: any) => ({ ...(prev || {}), '自己PR': selfPr }))}
               disabled={!schema || busy}
-              style={{ padding: '8px 12px' }}
+              style={primaryBtn}
             >
               スキーマに保存
             </button>
-            <button onClick={loadLatestSchema} disabled={busy} style={{ padding: '8px 12px' }}>
+            <button onClick={loadLatestSchema} disabled={busy} style={{ padding: '9px 12px', borderRadius: 10, border: '1px solid #cbd5e1', background: '#fff' }}>
               最新スキーマを呼び出す
             </button>
           </div>
@@ -395,16 +450,18 @@ function App() {
         </div>
       )}
 
-      {result && (
-        <div style={{ marginTop: 16 }}>
-          <div style={{ ...card, marginTop: 12 }}>
-            <div style={sectionTitle}>レスポンス詳細</div>
-            <pre style={{ background: '#f8fafc', padding: 12, borderRadius: 8, whiteSpace: 'pre-wrap' }}>
-              {JSON.stringify(result, null, 2)}
-            </pre>
-          </div>
+          {result && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ ...card, marginTop: 12 }}>
+                <div style={sectionTitle}>レスポンス詳細</div>
+                <pre style={{ background: '#0f172a', color: '#e2e8f0', padding: 12, borderRadius: 12, whiteSpace: 'pre-wrap', fontSize: 12 }}>
+                  {JSON.stringify(result, null, 2)}
+                </pre>
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
