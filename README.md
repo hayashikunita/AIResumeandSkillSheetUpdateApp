@@ -2,6 +2,13 @@
 
 Windows環境で、PDF/Word/Excel/TXT/画像(PNG/JPG/TIFF)から指定スキーマのJSONを抽出し、テキスト/DOCX/XLSX/テンプレートファイルを生成する FastAPI + React アプリです。
 
+### 特徴
+- **多形式入力**: PDF/Word/Excel/TXT/画像 + 自由テキストを混在アップロード可能。
+- **テンプレート生成**: DOCX・XLSXテンプレートを保持したままプレースホルダ置換。
+- **強み/自己PR自動生成**: OpenAI APIキーがあればChatGPTで高評価文を生成。キーが無い/失敗時は簡易ルールで補完。
+- **リッチテキスト出力**: `/generate/text` はスキーマ全項目を整形して返却。
+- **期間整形**: `YYYY年MM月～YYYY年MM月` に自動整形（判別不可なら原文維持）。
+
 
 AI抽出時
 
@@ -27,6 +34,11 @@ choco install tesseract
 ```
 インストール後に PowerShell を再起動してください。
 
+#### 環境変数
+- `OPENAI_API_KEY` (任意だが推奨): 強み/自己PRをChatGPTで生成する際に使用。
+- `OPENAI_MODEL` (任意): 抽出/強み生成のモデル名。未指定時はコード既定値を使用。
+- `VITE_BACKEND_URL` (frontend任意): フロントエンドから叩くバックエンドURL。未指定なら `http://localhost:8000`。
+
 ### セットアップ (frontend)
 ```powershell
 cd frontend
@@ -39,12 +51,20 @@ npm run dev -- --host --port 3000
 - `GET /health` … ヘルスチェック
 - `POST /extract` … ファイルアップロード（複数可）→ 全ファイルを1件のJSONスキーマに要約して返却。PDF/Word/Excel/TXT/画像(PNG/JPG/TIFF)と、自由入力テキスト(`manual_text`)をサポート。`data/temp/<timestamp>/items.json` と `schema.json` を必ず保存します（`save_schema_file` は後方互換用）。モデルは `OPENAI_MODEL` またはクエリ `model` で上書き可能。
 - 抽出時にスキーマへ「自分の強み」「自己PR」を自動生成して埋め込みます（OpenAI APIキーがある場合はChatGPTで生成し、キーが無い/失敗時は簡易ルールで補完。同名フィールドが既にあれば保持）。
+- `/generate/text` はスキーマ内容を整形したリッチテキストを返します（期間/勤務先/案件名/概要/業務内容/環境/言語/ツール/フレームワーク/ライブラリ/規模・人数/役割・役職/担当工程/自分の強み/自己PR を列挙）。
 - `GET /latest-schema` … `data/temp` 最新の `schema.json` を返却。
 - `POST /generate/text` … スキーマからテキスト素案を生成し、`/download/{ts}/generated_text.txt` を返す。
 - `POST /generate/resume` … スキーマから職務経歴書 DOCX を生成し、`/download/{ts}/resume.docx` を返す。
 - `POST /generate/skill-sheet` … スキーマからスキルシート XLSX を生成し、`/download/{ts}/skill_sheet.xlsx` を返す。
 - `POST /generate/temp-files` … スキーマを `data/temp/` のテンプレ固定名に書き出しつつ、同内容をタイムスタンプフォルダにも保存（`/download/{ts}/...` リンク同梱）。
 - `GET /download/{ts}/{filename}` … タイムスタンプフォルダに保存されたファイルを取得。
+
+### クイックスタート (最短手順)
+1. backend起動: `python -m venv .venv; ./.venv/Scripts/Activate.ps1; pip install -r requirements.txt; uvicorn main:app --reload --host 0.0.0.0 --port 8000`
+2. frontend起動: `cd frontend; npm install; npm run dev -- --host --port 3000`
+3. ブラウザで `http://localhost:3000` を開き、**Extract**タブでファイル or テキストを送信。
+4. **Text/Resume/SkillSheet**タブで生成を実行・ダウンロード。
+5. **自分の強み/自己PR**タブで手動編集も可能（スキーマに保存）。
 
 リクエスト例（PowerShell）:
 ```powershell
@@ -109,6 +129,8 @@ Invoke-WebRequest -Uri "http://localhost:8000/extract?model=gpt-4.1" -Method Pos
 - 規模・人数: `<規模・人数>`（`チーム人数=..., 規模=...`）
 - 業務内容・環境・言語・ツール・FW・ライブラリ: `<業務内容>` `<環境>` `<言語>` `<ツール>` `<フレームワーク>` `<ライブラリ>`
 - 担当工程チェック: `<要件定義>` `<基本設計>` `<詳細設計>` `<実装>` `<単テスト>` `<結テスト>` `<保守運用>` → スキーマに含まれていれば `〇`、なければ空
+
+> テンプレ配置の優先順: `backend/data/temp/*` が優先、無い場合はプロジェクト直下 `data/temp/*` を参照。
 
 ### 期間の整形
 - `2024-04〜2025-01` や `2024/4~2024/9` のような入力を `2024年04月～2025年01月` に整形。判別できない形式はそのまま残します。
