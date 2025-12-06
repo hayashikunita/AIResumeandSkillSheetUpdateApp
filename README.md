@@ -27,6 +27,7 @@ npm run dev -- --host --port 3000
 ### エンドポイント
 - `GET /health` … ヘルスチェック
 - `POST /extract` … ファイルアップロード（複数可）→ 全ファイルを1件のJSONスキーマに要約して返却。PDF/Word/Excel/TXT/画像(PNG/JPG/TIFF)と、自由入力テキスト(`manual_text`)をサポート。`data/temp/<timestamp>/items.json` と `schema.json` を必ず保存します（`save_schema_file` は後方互換用）。モデルは `OPENAI_MODEL` またはクエリ `model` で上書き可能。
+- 抽出時にスキーマへ「自分の強み」「自己PR」を自動生成して埋め込みます（抽出済みの同名フィールドがあれば上書きしません）。
 - `GET /latest-schema` … `data/temp` 最新の `schema.json` を返却。
 - `POST /generate/text` … スキーマからテキスト素案を生成し、`/download/{ts}/generated_text.txt` を返す。
 - `POST /generate/resume` … スキーマから職務経歴書 DOCX を生成し、`/download/{ts}/resume.docx` を返す。
@@ -82,6 +83,10 @@ Invoke-WebRequest -Uri "http://localhost:8000/extract?model=gpt-4.1" -Method Pos
 ### スキーマについて
 すべてのrequiredフィールドを必ず返却します（期間/担当プロジェクト概要/勤務先/案件名/業務内容/環境/言語/ツール/フレームワーク/ライブラリ/規模・人数/役割・役職/担当工程）。項目が抽出できない場合はプレースホルダー（例: "未設定" や空配列）で埋めます。
 
+### 強み・自己PRの自動生成
+- 抽出時、スキーマに「自分の強み」「自己PR」が無い場合は、抽出済みの役割/工程/環境/言語などから簡易文を自動生成して埋め込みます。
+- フロントの「自分の強み」「自己PR」タブで手動上書き・保存できます（スキーマに反映）。
+
 ### DOCX テンプレ置換仕様（`data/temp/temp_職務経歴書.docx`）
 テンプレを見つけた場合、そのスタイルを保持しながら以下の文字列を置換します（段落・表セルを対象、run分割も統合して置換）。テンプレは `backend/data/temp` かプロジェクト直下 `data/temp` のどちらに置いても可。
 
@@ -111,6 +116,8 @@ Invoke-WebRequest -Uri "http://localhost:8000/extract?model=gpt-4.1" -Method Pos
 2. **Text**: `/generate/text` でテキスト素案を生成、プレビューとダウンロードリンクを表示。
 3. **Resume**: `/generate/resume` で職務経歴書 DOCX を生成しダウンロード。
 4. **SkillSheet**: `/generate/skill-sheet` でスキルシート XLSX を生成しダウンロード。
+5. **自分の強み**: 抽出済みスキーマに強みの文章を追記・編集し、スキーマへ保存。
+6. **自己PR**: 自己PR文を下書きし、スキーマへ保存（後続のテンプレ適用時の素材として利用）。
 
 ### 今後の拡張の余地
 - フロントエンド（React/TypeScript）によるアップロードUI

@@ -117,6 +117,73 @@ def _norm_text(val, default: str = "未設定") -> str:
     return text if text else default
 
 
+def _join_tokens(val) -> str:
+    if not val:
+        return ""
+    if isinstance(val, str):
+        return val.strip()
+    if isinstance(val, list):
+        cleaned = [str(v).strip() for v in val if str(v).strip()]
+        return "、".join(cleaned)
+    return str(val)
+
+
+def build_strengths(schema: dict) -> str:
+    role = schema.get("役割・役職") or "エンジニア"
+    phases = _join_tokens(schema.get("担当工程：要件定義、基本設計、詳細設計、実装、単テスト、結テスト、保守運用"))
+    env = _join_tokens(schema.get("環境"))
+    langs = _join_tokens(schema.get("言語"))
+    tools = _join_tokens(schema.get("ツール"))
+    frameworks = _join_tokens(schema.get("フレームワーク"))
+    libraries = _join_tokens(schema.get("ライブラリ"))
+    summary = schema.get("担当プロジェクト概要") or schema.get("案件名") or "プロジェクト経験"
+
+    bullets = []
+    bullets.append(f"{role}として{summary}に従事し、{phases or '上流～下流まで'}の工程を経験しました。")
+    if env:
+        bullets.append(f"環境: {env}")
+    if langs:
+        bullets.append(f"言語/スクリプト: {langs}")
+    if tools:
+        bullets.append(f"ツール: {tools}")
+    if frameworks:
+        bullets.append(f"フレームワーク: {frameworks}")
+    if libraries:
+        bullets.append(f"ライブラリ: {libraries}")
+    return "\n".join(bullets) if bullets else "強みを抽出できる情報が不足しています。"
+
+
+def build_self_pr(schema: dict) -> str:
+    summary = schema.get("担当プロジェクト概要") or schema.get("案件名") or "プロジェクト経験"
+    role = schema.get("役割・役職") or "エンジニア"
+    scale = schema.get("規模・人数", {})
+    scale_text = f"チーム人数={scale.get('チーム人数', '不明')}, 規模={scale.get('規模', '不明')}"
+    phases = _join_tokens(schema.get("担当工程：要件定義、基本設計、詳細設計、実装、単テスト、結テスト、保守運用"))
+    env = _join_tokens(schema.get("環境"))
+    langs = _join_tokens(schema.get("言語"))
+
+    lines = [
+        f"{role}として{summary}に携わり、{phases or '要件定義～テストまで'}を担当しました。",
+        f"チーム/規模: {scale_text}",
+    ]
+    if env:
+        lines.append(f"環境: {env}")
+    if langs:
+        lines.append(f"言語: {langs}")
+    tools = _join_tokens(schema.get("ツール"))
+    if tools:
+        lines.append(f"ツール: {tools}")
+    frameworks = _join_tokens(schema.get("フレームワーク"))
+    if frameworks:
+        lines.append(f"フレームワーク: {frameworks}")
+    libraries = _join_tokens(schema.get("ライブラリ"))
+    if libraries:
+        lines.append(f"ライブラリ: {libraries}")
+
+    lines.append("成果を再現できるよう、要件整理から移行・運用までのリード経験を活かします。")
+    return "\n".join(lines)
+
+
 def _format_period_jp(val: str) -> str:
     if not val:
         return "未設定"
@@ -506,6 +573,16 @@ async def extract(
         merged = "\n\n".join(texts)
         schema = parse_to_schema(merged)
         ai_error = str(e)
+
+    # Auto-fill strengths / self-PR if missing
+    try:
+        if schema and isinstance(schema, dict):
+            if not schema.get("自分の強み"):
+                schema["自分の強み"] = build_strengths(schema)
+            if not schema.get("自己PR"):
+                schema["自己PR"] = build_self_pr(schema)
+    except Exception:
+        pass
 
     result = {
         "status": "ok",

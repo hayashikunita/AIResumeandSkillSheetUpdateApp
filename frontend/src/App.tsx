@@ -1,9 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 
 const backend = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
-type Tab = 'extract' | 'text' | 'resume' | 'skill';
+type Tab = 'extract' | 'text' | 'resume' | 'skill' | 'strengths' | 'selfpr';
 
 type GenResponse = {
   download_path?: string;
@@ -21,6 +21,8 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>('extract');
   const [textPreview, setTextPreview] = useState<string>('');
   const [downloads, setDownloads] = useState<Record<string, string>>({});
+  const [strengths, setStrengths] = useState<string>('');
+  const [selfPr, setSelfPr] = useState<string>('');
 
   const busy = useMemo(() => Object.values(loading).some(Boolean), [loading]);
 
@@ -49,6 +51,17 @@ function App() {
   const removeFile = (key: string) => {
     setFiles((prev) => prev.filter((f) => `${f.name}-${f.size}-${f.lastModified}` !== key));
   };
+
+  // Sync strengths/selfPR from schema when it updates
+  useEffect(() => {
+    if (!schema) return;
+    if (schema['自分の強み'] && typeof schema['自分の強み'] === 'string') {
+      setStrengths(schema['自分の強み']);
+    }
+    if (schema['自己PR'] && typeof schema['自己PR'] === 'string') {
+      setSelfPr(schema['自己PR']);
+    }
+  }, [schema]);
 
   const onUpload = async () => {
     setBusy('upload', true);
@@ -161,13 +174,15 @@ function App() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
         <div>
           <h2 style={{ margin: 0 }}>AI Resume & SkillSheet</h2>
-          <div style={{ color: '#475569', marginTop: 4 }}>抽出 → テキスト → 職務経歴書 → スキルシート</div>
+          <div style={{ color: '#475569', marginTop: 4 }}>抽出 → テキスト → 職務経歴書 → スキルシート → 自分の強み → 自己PR</div>
         </div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {navBtn('extract', 'Extract')}
           {navBtn('text', 'Text')}
           {navBtn('resume', 'Resume')}
           {navBtn('skill', 'SkillSheet')}
+          {navBtn('strengths', '自分の強み')}
+          {navBtn('selfpr', '自己PR')}
         </div>
       </div>
 
@@ -264,6 +279,22 @@ function App() {
           {textPreview && (
             <pre style={{ background: '#f8fafc', padding: 12, borderRadius: 8, whiteSpace: 'pre-wrap' }}>{textPreview}</pre>
           )}
+          {!textPreview && (schema?.['自分の強み'] || schema?.['自己PR']) && (
+            <div style={{ background: '#f8fafc', padding: 12, borderRadius: 8, display: 'grid', gap: 8 }}>
+              {schema?.['自分の強み'] && (
+                <div>
+                  <strong>自分の強み</strong>
+                  <div style={{ marginTop: 4, color: '#0f172a', whiteSpace: 'pre-wrap' }}>{schema['自分の強み']}</div>
+                </div>
+              )}
+              {schema?.['自己PR'] && (
+                <div>
+                  <strong>自己PR</strong>
+                  <div style={{ marginTop: 4, color: '#0f172a', whiteSpace: 'pre-wrap' }}>{schema['自己PR']}</div>
+                </div>
+              )}
+            </div>
+          )}
           {!textPreview && schema && (
             <pre style={{ background: '#f8fafc', padding: 12, borderRadius: 8, whiteSpace: 'pre-wrap' }}>
               {JSON.stringify(schema, null, 2)}
@@ -307,6 +338,60 @@ function App() {
           </div>
           {smallInfo('スキーマ timestamp', schemaTs)}
           {!schema && <div style={{ color: '#475569' }}>先に抽出または「最新スキーマを呼び出す」を実行してください。</div>}
+        </div>
+      )}
+
+      {isActive('strengths') && (
+        <div style={card}>
+          <div style={sectionTitle}>5. 自分の強み</div>
+          <p style={{ marginTop: 0, color: '#475569' }}>抽出結果に追記したい「強み」をここで編集し、スキーマに保存します。</p>
+          <textarea
+            value={strengths}
+            onChange={(e) => setStrengths(e.target.value)}
+            rows={8}
+            style={{ width: '100%', marginTop: 8, padding: 10, borderRadius: 8, border: '1px solid #cbd5e1' }}
+            placeholder="例: セキュリティ設計とID管理領域での経験、要件定義〜結合テストまでの一貫対応..."
+          />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            <button
+              onClick={() => setSchema((prev: any) => ({ ...(prev || {}), '自分の強み': strengths }))}
+              disabled={!schema || busy}
+              style={{ padding: '8px 12px' }}
+            >
+              スキーマに保存
+            </button>
+            <button onClick={loadLatestSchema} disabled={busy} style={{ padding: '8px 12px' }}>
+              最新スキーマを呼び出す
+            </button>
+          </div>
+          {smallInfo('スキーマ timestamp', schemaTs)}
+        </div>
+      )}
+
+      {isActive('selfpr') && (
+        <div style={card}>
+          <div style={sectionTitle}>6. 自己PR</div>
+          <p style={{ marginTop: 0, color: '#475569' }}>自己PR文を下書きし、スキーマに保存します。必要に応じて履歴書/DOCXやスキルシートに組み込む際の素材として活用できます。</p>
+          <textarea
+            value={selfPr}
+            onChange={(e) => setSelfPr(e.target.value)}
+            rows={10}
+            style={{ width: '100%', marginTop: 8, padding: 10, borderRadius: 8, border: '1px solid #cbd5e1' }}
+            placeholder="例: ID基盤の設計・構築に強みがあり、要件定義から移行までリードした経験..."
+          />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12 }}>
+            <button
+              onClick={() => setSchema((prev: any) => ({ ...(prev || {}), '自己PR': selfPr }))}
+              disabled={!schema || busy}
+              style={{ padding: '8px 12px' }}
+            >
+              スキーマに保存
+            </button>
+            <button onClick={loadLatestSchema} disabled={busy} style={{ padding: '8px 12px' }}>
+              最新スキーマを呼び出す
+            </button>
+          </div>
+          {smallInfo('スキーマ timestamp', schemaTs)}
         </div>
       )}
 
