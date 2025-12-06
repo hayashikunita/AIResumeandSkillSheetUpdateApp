@@ -1,14 +1,32 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import axios from 'axios';
 
 const backend = import.meta.env.VITE_BACKEND_URL || 'http://localhost:8000';
 
+type Tab = 'extract' | 'text' | 'resume' | 'skill' | 'temp';
+
+type GenResponse = {
+  download_path?: string;
+  text?: string;
+};
+
 function App() {
   const [files, setFiles] = useState<File[]>([]);
+  const [schema, setSchema] = useState<any | null>(null);
+  const [schemaTs, setSchemaTs] = useState<string | null>(null);
   const [result, setResult] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
-  const [manualText, setManualText] = useState<string>("");
+  const [manualText, setManualText] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<Tab>('extract');
+  const [textPreview, setTextPreview] = useState<string>('');
+  const [downloads, setDownloads] = useState<Record<string, string>>({});
+
+  const busy = useMemo(() => Object.values(loading).some(Boolean), [loading]);
+
+  const setBusy = (key: string, val: boolean) => {
+    setLoading((prev) => ({ ...prev, [key]: val }));
+  };
 
   const upsertFiles = (list: FileList | null) => {
     if (!list) return;
@@ -33,7 +51,7 @@ function App() {
   };
 
   const onUpload = async () => {
-    setLoading(true);
+    setBusy('upload', true);
     setError(null);
     setResult(null);
     try {
@@ -46,83 +64,281 @@ function App() {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       setResult(res.data);
+      setSchema(res.data.schema ?? res.data);
+      setSchemaTs(res.data.timestamp ?? null);
+      setActiveTab('text');
     } catch (e: any) {
       const status = e?.response?.status;
       const data = e?.response?.data;
       setError(`Upload failed status=${status ?? 'unknown'}`);
       console.error('extract error', { status, data, error: e });
     } finally {
-      setLoading(false);
+      setBusy('upload', false);
     }
   };
 
+  const loadLatestSchema = async () => {
+    setBusy('latest', true);
+    setError(null);
+    try {
+      const res = await axios.get(`${backend}/latest-schema`);
+      setSchema(res.data.schema);
+      setSchemaTs(res.data.timestamp ?? null);
+      setResult(res.data);
+    } catch (e: any) {
+      setError('最新のスキーマを取得できませんでした');
+    } finally {
+      setBusy('latest', false);
+    }
+  };
+
+  const triggerGen = async (path: string, key: string) => {
+    setBusy(key, true);
+    setError(null);
+    try {
+      const body = schema ? { schema } : {};
+      const res = await axios.post<GenResponse>(`${backend}${path}`, body);
+      if (res.data.text) {
+        setTextPreview(res.data.text);
+      }
+      if (res.data.download_path) {
+        setDownloads((prev) => ({ ...prev, [key]: res.data.download_path as string }));
+      }
+      // /generate/temp-files returns multiple download paths
+      const anyPaths = (res.data as any).download_paths;
+      if (anyPaths) {
+        setDownloads((prev) => ({ ...prev, ...anyPaths }));
+      }
+    } catch (e: any) {
+      setError(`生成に失敗しました (${key})`);
+    } finally {
+      setBusy(key, false);
+    }
+  };
+
+  const isActive = (tab: Tab) => tab === activeTab;
+
+  const navBtn = (tab: Tab, label: string) => (
+    <button
+      key={tab}
+      onClick={() => setActiveTab(tab)}
+      style={{
+        padding: '10px 16px',
+        borderRadius: 8,
+        border: isActive(tab) ? '1px solid #0f766e' : '1px solid #d0d7de',
+        background: isActive(tab) ? '#0f766e' : '#f8fafc',
+        color: isActive(tab) ? '#fff' : '#0f172a',
+        cursor: 'pointer',
+        fontWeight: 600,
+      }}
+    >
+      {label}
+    </button>
+  );
+
+  const card: React.CSSProperties = {
+    background: '#fff',
+    border: '1px solid #e2e8f0',
+    borderRadius: 12,
+    padding: 16,
+    boxShadow: '0 4px 14px rgba(0,0,0,0.04)',
+  };
+
+  const sectionTitle: React.CSSProperties = {
+    fontSize: 18,
+    marginBottom: 8,
+    fontWeight: 700,
+  };
+
+  const smallInfo = (label: string, value?: string | null) => (
+    <div style={{ fontSize: 12, color: '#334155', marginTop: 4 }}>
+      <strong>{label}</strong>: {value || '—'}
+    </div>
+  );
+
   return (
-    <div style={{ maxWidth: 960, margin: '40px auto', padding: 24, fontFamily: 'sans-serif' }}>
-      <h2>Schema Extractor (FastAPI + React)</h2>
-      <p>PDF/Word/Excel/TXT/画像(PNG/JPG/TIFF)から指定スキーマのJSONを抽出します。複数ファイルを一度にアップロードできます。</p>
-      <p style={{ color: '#444' }}>※ 原則 1 案件分のみで入力してください。単一のスキーマとして出力されます。</p>
-
-      <div style={{ marginBottom: 12 }}>
-        <input
-          type="file"
-          multiple
-          onChange={(e) => upsertFiles(e.target.files)}
-          accept=".pdf,.docx,.xlsx,.txt,.png,.jpg,.jpeg,.bmp,.tif,.tiff"
-        />
-        <button onClick={onUpload} disabled={(!files.length && !manualText.trim()) || loading} style={{ marginLeft: 8 }}>
-          {loading ? '抽出中…' : '抽出する'}
-        </button>
-        <button onClick={() => setFiles([])} disabled={!files.length || loading} style={{ marginLeft: 8 }}>
-          クリア
-        </button>
+    <div style={{ maxWidth: 1100, margin: '32px auto', padding: '0 20px', fontFamily: 'Inter, "Helvetica Neue", Arial, sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div>
+          <h2 style={{ margin: 0 }}>AI Resume & SkillSheet</h2>
+          <div style={{ color: '#475569', marginTop: 4 }}>抽出 → テキスト → 職務経歴書 → スキルシート</div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {navBtn('extract', 'Extract')}
+          {navBtn('text', 'Text')}
+          {navBtn('resume', 'Resume')}
+          {navBtn('skill', 'SkillSheet')}
+          {navBtn('temp', 'Temp Files')}
+        </div>
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <label htmlFor="manualText"><strong>自由入力（テキストを直接貼り付け）</strong></label>
-        <textarea
-          id="manualText"
-          value={manualText}
-          onChange={(e) => setManualText(e.target.value)}
-          rows={8}
-          style={{ width: '100%', marginTop: 8, padding: 8 }}
-          placeholder="ここに職務経歴や業務内容を直接記入できます。1案件分のみで入力してください。ファイルがなくても送信できます。"
-        />
-      </div>
+      {error && <div style={{ color: '#b91c1c', marginBottom: 12 }}>{error}</div>}
 
-      {files.length > 0 && (
-        <div style={{ marginBottom: 12 }}>
-          <strong>選択中のファイル ({files.length})</strong>
-          <ul>
-            {files.map((f) => {
-              const key = `${f.name}-${f.size}-${f.lastModified}`;
-              const kb = Math.max(1, Math.round(f.size / 1024));
-              return (
-                <li key={key}>
-                  {f.name} ({kb} KB)
-                  <button onClick={() => removeFile(key)} style={{ marginLeft: 8 }} disabled={loading}>
-                    削除
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+      {isActive('extract') && (
+        <div style={card}>
+          <div style={sectionTitle}>1. データ抽出</div>
+          <p style={{ marginTop: 0, color: '#475569' }}>PDF/Word/Excel/TXT/画像から1案件分の情報を抽出し、スキーマJSONを生成します。</p>
+          <div style={{ marginBottom: 12, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <input
+              type="file"
+              multiple
+              onChange={(e) => upsertFiles(e.target.files)}
+              accept=".pdf,.docx,.xlsx,.txt,.png,.jpg,.jpeg,.bmp,.tif,.tiff"
+            />
+            <button
+              onClick={onUpload}
+              disabled={(!files.length && !manualText.trim()) || busy}
+              style={{ padding: '8px 12px' }}
+            >
+              {loading['upload'] ? '抽出中…' : '抽出する'}
+            </button>
+            <button onClick={() => setFiles([])} disabled={!files.length || busy} style={{ padding: '8px 12px' }}>
+              クリア
+            </button>
+            <button onClick={loadLatestSchema} disabled={busy} style={{ padding: '8px 12px' }}>
+              最新のスキーマを呼び出す
+            </button>
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <label htmlFor="manualText"><strong>自由入力（テキスト直接貼り付け）</strong></label>
+            <textarea
+              id="manualText"
+              value={manualText}
+              onChange={(e) => setManualText(e.target.value)}
+              rows={8}
+              style={{ width: '100%', marginTop: 8, padding: 10, borderRadius: 8, border: '1px solid #cbd5e1' }}
+              placeholder="職務経歴や業務内容を貼り付け。ファイルなしでも送信できます。"
+            />
+          </div>
+
+          {files.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <strong>選択中のファイル ({files.length})</strong>
+              <ul>
+                {files.map((f) => {
+                  const key = `${f.name}-${f.size}-${f.lastModified}`;
+                  const kb = Math.max(1, Math.round(f.size / 1024));
+                  return (
+                    <li key={key}>
+                      {f.name} ({kb} KB)
+                      <button onClick={() => removeFile(key)} style={{ marginLeft: 8 }} disabled={busy}>
+                        削除
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+
+          {schema && (
+            <div style={{ marginTop: 12 }}>
+              <strong>抽出スキーマ</strong>
+              {smallInfo('timestamp', schemaTs)}
+              <pre style={{ background: '#f8fafc', padding: 12, borderRadius: 8, whiteSpace: 'pre-wrap' }}>
+                {JSON.stringify(schema, null, 2)}
+              </pre>
+            </div>
+          )}
         </div>
       )}
 
-      {error && <div style={{ color: 'red' }}>{error}</div>}
+      {isActive('text') && (
+        <div style={card}>
+          <div style={sectionTitle}>2. テキスト生成</div>
+          <p style={{ marginTop: 0, color: '#475569' }}>スキーマからテキスト素案を作ります（pre-view）。</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            <button onClick={() => triggerGen('/generate/text', 'text')} disabled={busy} style={{ padding: '8px 12px' }}>
+              テキスト生成
+            </button>
+            <button onClick={loadLatestSchema} disabled={busy} style={{ padding: '8px 12px' }}>
+              最新スキーマ読み込み
+            </button>
+            {downloads['text'] && (
+              <a href={`${backend}${downloads['text']}`} style={{ padding: '8px 12px' }} target="_blank" rel="noreferrer">
+                テキストをダウンロード
+              </a>
+            )}
+          </div>
+          {smallInfo('スキーマ timestamp', schemaTs)}
+          {textPreview && (
+            <pre style={{ background: '#f8fafc', padding: 12, borderRadius: 8, whiteSpace: 'pre-wrap' }}>{textPreview}</pre>
+          )}
+          {!textPreview && schema && (
+            <pre style={{ background: '#f8fafc', padding: 12, borderRadius: 8, whiteSpace: 'pre-wrap' }}>
+              {JSON.stringify(schema, null, 2)}
+            </pre>
+          )}
+        </div>
+      )}
+
+      {isActive('resume') && (
+        <div style={card}>
+          <div style={sectionTitle}>3. 職務経歴書 (DOCX)</div>
+          <p style={{ marginTop: 0, color: '#475569' }}>スキーマから職務経歴書の雛形を作成します。</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            <button onClick={() => triggerGen('/generate/resume', 'resume_docx')} disabled={busy} style={{ padding: '8px 12px' }}>
+              DOCX生成
+            </button>
+            {downloads['resume_docx'] && (
+              <a href={`${backend}${downloads['resume_docx']}`} style={{ padding: '8px 12px' }} target="_blank" rel="noreferrer">
+                DOCXをダウンロード
+              </a>
+            )}
+          </div>
+          {smallInfo('スキーマ timestamp', schemaTs)}
+          {!schema && <div style={{ color: '#475569' }}>先に抽出または「最新スキーマを呼び出す」を実行してください。</div>}
+        </div>
+      )}
+
+      {isActive('skill') && (
+        <div style={card}>
+          <div style={sectionTitle}>4. スキルシート (XLSX)</div>
+          <p style={{ marginTop: 0, color: '#475569' }}>スキーマからスキルシートを生成します。</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            <button onClick={() => triggerGen('/generate/skill-sheet', 'skill_xlsx')} disabled={busy} style={{ padding: '8px 12px' }}>
+              XLSX生成
+            </button>
+            {downloads['skill_xlsx'] && (
+              <a href={`${backend}${downloads['skill_xlsx']}`} style={{ padding: '8px 12px' }} target="_blank" rel="noreferrer">
+                XLSXをダウンロード
+              </a>
+            )}
+          </div>
+          {smallInfo('スキーマ timestamp', schemaTs)}
+          {!schema && <div style={{ color: '#475569' }}>先に抽出または「最新スキーマを呼び出す」を実行してください。</div>}
+        </div>
+      )}
+
+      {isActive('temp') && (
+        <div style={card}>
+          <div style={sectionTitle}>5. Temp ファイルを更新</div>
+          <p style={{ marginTop: 0, color: '#475569' }}>テンプレート名に合わせて `data/temp` 配下を上書きし、同内容をダウンロード用に保存します。</p>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            <button onClick={() => triggerGen('/generate/temp-files', 'temp_files')} disabled={busy} style={{ padding: '8px 12px' }}>
+              tempファイルを生成/更新
+            </button>
+            {['resume_txt', 'skill_txt', 'resume_docx', 'skill_xlsx'].map((k) =>
+              downloads[k] ? (
+                <a key={k} href={`${backend}${downloads[k]}`} style={{ padding: '8px 12px' }} target="_blank" rel="noreferrer">
+                  {k} DL
+                </a>
+              ) : null
+            )}
+          </div>
+          {smallInfo('スキーマ timestamp', schemaTs)}
+          <div style={{ color: '#475569', fontSize: 13 }}>
+            更新先: backend `data/temp/` の固定ファイルと、ダウンロード用に timestamp フォルダへスナップショット保存します。
+          </div>
+        </div>
+      )}
 
       {result && (
         <div style={{ marginTop: 16 }}>
-          <h3>結果</h3>
-          <div style={{ marginTop: 12 }}>
-            <strong>スキーマ</strong>
-            <pre style={{ background: '#f7f7f7', padding: 12, whiteSpace: 'pre-wrap' }}>
-              {JSON.stringify(result.schema ?? result, null, 2)}
-            </pre>
-          </div>
-          <div style={{ marginTop: 12 }}>
-            <strong>レスポンス全体</strong>
-            <pre style={{ background: '#f7f7f7', padding: 12, whiteSpace: 'pre-wrap' }}>
+          <div style={{ ...card, marginTop: 12 }}>
+            <div style={sectionTitle}>レスポンス詳細</div>
+            <pre style={{ background: '#f8fafc', padding: 12, borderRadius: 8, whiteSpace: 'pre-wrap' }}>
               {JSON.stringify(result, null, 2)}
             </pre>
           </div>

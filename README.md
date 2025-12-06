@@ -1,6 +1,6 @@
 ## AI Resume/Skill JSON Extractor
 
-Windows環境で、PDF/Word/Excel/TXT/画像(PNG/JPG/TIFF)から指定のJSONスキーマに沿った情報を抽出するFastAPIバックエンドの最小構成です。
+Windows環境で、PDF/Word/Excel/TXT/画像(PNG/JPG/TIFF)から指定スキーマのJSONを抽出し、テキスト/DOCX/XLSX/テンプレートファイルを生成する FastAPI + React アプリです。
 
 ### セットアップ (backend)
 ```powershell
@@ -16,20 +16,28 @@ choco install tesseract
 ```
 インストール後に PowerShell を再起動してください。
 
+### セットアップ (frontend)
+```powershell
+cd frontend
+npm install
+npm run dev -- --host --port 3000
+```
+環境変数 `VITE_BACKEND_URL` を指定しなければ `http://localhost:8000` に向きます。
+
 ### エンドポイント
 - `GET /health` … ヘルスチェック
-- `POST /extract` … ファイルアップロード（複数可）→ 全ファイルをまとめて1件のJSONスキーマに要約して返却。原則 1 案件分のみを入力してください。PDF/Word/Excel/TXT/画像(PNG/JPG/TIFF)と、自由入力テキスト(`manual_text`)をサポート。クエリ `save_schema_file=true` を付けると、`data/temp/<timestamp>/schema.json` にスキーマだけを書き出します（通常の `items.json` も残ります）。モデルは環境変数 `OPENAI_MODEL`（例: gpt-4o-mini / gpt-4.1 / o4-mini）またはクエリ `model` で上書きできます。
+- `POST /extract` … ファイルアップロード（複数可）→ 全ファイルを1件のJSONスキーマに要約して返却。PDF/Word/Excel/TXT/画像(PNG/JPG/TIFF)と、自由入力テキスト(`manual_text`)をサポート。`data/temp/<timestamp>/items.json` と `schema.json` を必ず保存します（`save_schema_file` は後方互換用）。モデルは `OPENAI_MODEL` またはクエリ `model` で上書き可能。
+- `GET /latest-schema` … `data/temp` 最新の `schema.json` を返却。
+- `POST /generate/text` … スキーマからテキスト素案を生成し、`/download/{ts}/generated_text.txt` を返す。
+- `POST /generate/resume` … スキーマから職務経歴書 DOCX を生成し、`/download/{ts}/resume.docx` を返す。
+- `POST /generate/skill-sheet` … スキーマからスキルシート XLSX を生成し、`/download/{ts}/skill_sheet.xlsx` を返す。
+- `POST /generate/temp-files` … スキーマを `data/temp/` のテンプレ固定名に書き出しつつ、同内容をタイムスタンプフォルダにも保存（`/download/{ts}/...` リンク同梱）。
+- `GET /download/{ts}/{filename}` … タイムスタンプフォルダに保存されたファイルを取得。
 
 リクエスト例（PowerShell）:
 ```powershell
 $form = @{ files = Get-Item "c:\path\to\your.pdf" }
 Invoke-WebRequest -Uri "http://localhost:8000/extract" -Method Post -Form $form | Select-Object -ExpandProperty Content
-```
-
-スキーマだけのファイルも保存したい場合（PowerShell例）:
-```powershell
-$form = @{ files = Get-Item "c:\path\to\your.pdf" }
-Invoke-WebRequest -Uri "http://localhost:8000/extract?save_schema_file=true" -Method Post -Form $form | Select-Object -ExpandProperty Content
 ```
 
 自由入力テキストだけで送る場合（PowerShell例）:
@@ -73,6 +81,37 @@ Invoke-WebRequest -Uri "http://localhost:8000/extract?model=gpt-4.1" -Method Pos
 
 ### スキーマについて
 すべてのrequiredフィールドを必ず返却します（期間/担当プロジェクト概要/勤務先/案件名/業務内容/環境/言語/ツール/フレームワーク/ライブラリ/規模・人数/役割・役職/担当工程）。項目が抽出できない場合はプレースホルダー（例: "未設定" や空配列）で埋めます。
+
+### DOCX テンプレ置換仕様（`data/temp/temp_職務経歴書.docx`）
+テンプレを見つけた場合、そのスタイルを保持しながら以下の文字列を置換します（段落・表セルを対象、run分割も統合して置換）。テンプレは `backend/data/temp` かプロジェクト直下 `data/temp` のどちらに置いても可。
+
+- 期間: `yyyy-mm〜yyyy-mm` / `yyyy年mm月dd日` / `<期間>` → 可能なら `YYYY年MM月～YYYY年MM月` に整形
+- 案件名: `ZZZ` / `<ZZZ>` / `<案件名>`
+- 勤務先: `name` / `<name>`
+- 担当プロジェクト概要: `職務概要` / `<職務概要>` / `<担当プロジェクト概要>`
+- 役割: `<役割・役職>` / `<役割>`
+- 規模・人数: `<規模・人数>`（`チーム人数=..., 規模=...`）
+- 業務内容・環境・言語・ツール・FW・ライブラリ: `<業務内容>` `<環境>` `<言語>` `<ツール>` `<フレームワーク>` `<ライブラリ>`
+- 担当工程チェック: `<要件定義>` `<基本設計>` `<詳細設計>` `<実装>` `<単テスト>` `<結テスト>` `<保守運用>` → スキーマに含まれていれば `〇`、なければ空
+
+### 期間の整形
+- `2024-04〜2025-01` や `2024/4~2024/9` のような入力を `2024年04月～2025年01月` に整形。判別できない形式はそのまま残します。
+
+### 保存場所
+- 抽出: `data/temp/<timestamp>/items.json` と `schema.json` を毎回保存。
+- 生成: `/generate/*` は `data/temp/<timestamp>/...` に成果物を置き、`/download/{ts}/...` で取得可能。
+- テンプレ固定名: `/generate/temp-files` は `data/temp/` 直下に以下を上書きし、同内容をタイムスタンプフォルダへスナップショット保存。
+	- `temp_職務経歴書_テキスト.txt`
+	- `temp_スキルシート_テキスト.txt`
+	- `temp_職務経歴書.docx`
+	- `temp_スキルシート.xlsx`
+
+### フロントエンド UI 操作フロー
+1. **Extract**: ファイル選択または自由入力で送信 → スキーマを表示・保存。
+2. **Text**: `/generate/text` でテキスト素案を生成、プレビューとダウンロードリンクを表示。
+3. **Resume**: `/generate/resume` で職務経歴書 DOCX を生成しダウンロード。
+4. **SkillSheet**: `/generate/skill-sheet` でスキルシート XLSX を生成しダウンロード。
+5. **Temp Files**: `/generate/temp-files` で `data/temp` のテンプレファイルを更新し、同内容のダウンロードリンクを取得。
 
 ### 今後の拡張の余地
 - フロントエンド（React/TypeScript）によるアップロードUI
