@@ -249,16 +249,28 @@ def build_resume_text(schema: dict) -> str:
         duties = _norm_text([ln for ln in duties_raw.splitlines()])
     else:
         duties = _norm_text(duties_raw)
+    company = _norm_text(schema.get("勤務先"))
+    project = _norm_text(schema.get("案件名"))
     env = _norm_text(schema.get("環境"))
     langs = _norm_text(schema.get("言語"))
     tools = _norm_text(schema.get("ツール"))
+    frameworks = _norm_text(schema.get("フレームワーク"))
+    libraries = _norm_text(schema.get("ライブラリ"))
     scale = schema.get("規模・人数", {})
     role = _norm_text(schema.get("役割・役職"))
     phases = _norm_text(schema.get("担当工程：要件定義、基本設計、詳細設計、実装、単テスト、結テスト、保守運用"))
+    strengths = _norm_text(schema.get("自分の強み"), default="")
+    selfpr = _norm_text(schema.get("自己PR"), default="")
 
     parts = [
         "【期間】",
         period,
+        "",
+        "【勤務先】",
+        company,
+        "",
+        "【案件名】",
+        project,
         "",
         "【担当プロジェクト概要】",
         summary,
@@ -275,6 +287,12 @@ def build_resume_text(schema: dict) -> str:
         "【ツール】",
         tools,
         "",
+        "【フレームワーク】",
+        frameworks,
+        "",
+        "【ライブラリ】",
+        libraries,
+        "",
         "【規模・人数】",
         f"チーム人数：{scale.get('チーム人数', '')}",
         f"規模：{scale.get('規模', '')}",
@@ -284,6 +302,12 @@ def build_resume_text(schema: dict) -> str:
         "",
         "【担当工程：要件定義、基本設計、詳細設計、実装、単テスト、結テスト、保守運用】",
         phases,
+        "",
+        "【自分の強み】",
+        strengths,
+        "",
+        "【自己PR】",
+        selfpr,
     ]
     return "\n".join(str(p) for p in parts if p is not None)
 
@@ -685,6 +709,7 @@ async def generate_text(schema: Optional[dict] = Body(None)):
         raise HTTPException(status_code=400, detail=str(e))
     if not schema_use or not isinstance(schema_use, dict):
         raise HTTPException(status_code=400, detail="schema is empty or invalid")
+    # 出力: 主要項目をリッチにまとめたテキスト
     content = build_resume_text(schema_use)
     ts, out_dir = ensure_out_dir()
     out_path = os.path.join(out_dir, "generated_text.txt")
