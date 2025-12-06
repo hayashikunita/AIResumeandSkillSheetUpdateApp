@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from docx import Document
 import openpyxl
 from openpyxl.cell.cell import MergedCell
+from openai import OpenAI
 
 from app.ingest import extract_text
 from app.parser import parse_to_schema
@@ -139,18 +140,13 @@ def build_strengths(schema: dict) -> str:
     summary = schema.get("担当プロジェクト概要") or schema.get("案件名") or "プロジェクト経験"
 
     bullets = []
-    bullets.append(f"{role}として{summary}に従事し、{phases or '上流～下流まで'}の工程を経験しました。")
-    if env:
-        bullets.append(f"環境: {env}")
-    if langs:
-        bullets.append(f"言語/スクリプト: {langs}")
-    if tools:
-        bullets.append(f"ツール: {tools}")
-    if frameworks:
-        bullets.append(f"フレームワーク: {frameworks}")
-    if libraries:
-        bullets.append(f"ライブラリ: {libraries}")
-    return "\n".join(bullets) if bullets else "強みを抽出できる情報が不足しています。"
+    bullets.append(f"{role}として{summary}をリードし、{phases or '要件定義〜運用'}を一貫して推進。品質・納期・安定性を同時に成立させる実行力があります。")
+    bullets.append("技術判断とリスク先読みでチームを牽引し、難易度の高い局面でも着実に収束させるリーダーシップが強みです。")
+    if env or langs or tools or frameworks or libraries:
+        techs = [t for t in [env, langs, tools, frameworks, libraries] if t]
+        bullets.append(f"幅広い技術スタックを自在に組み合わせ、最適解を設計・実装: { ' / '.join(techs) }")
+    bullets.append("周囲から専門家として相談を受けることが多く、ナレッジ共有や育成でも高い評価を得ています。")
+    return "\n".join(bullets)
 
 
 def build_self_pr(schema: dict) -> str:
@@ -163,7 +159,7 @@ def build_self_pr(schema: dict) -> str:
     langs = _join_tokens(schema.get("言語"))
 
     lines = [
-        f"{role}として{summary}に携わり、{phases or '要件定義～テストまで'}を担当しました。",
+        f"{role}として{summary}を主導し、{phases or '要件定義～テストまで'}を完遂。複雑な条件下でも顧客満足とチーム生産性を両立させてきました。",
         f"チーム/規模: {scale_text}",
     ]
     if env:
@@ -180,8 +176,52 @@ def build_self_pr(schema: dict) -> str:
     if libraries:
         lines.append(f"ライブラリ: {libraries}")
 
-    lines.append("成果を再現できるよう、要件整理から移行・運用までのリード経験を活かします。")
+    lines.append("課題の本質を捉え、ステークホルダーと合意形成しながら高品質な成果物にまとめ上げる力があります。")
+    lines.append("再現性のある進め方で、要件整理から移行・運用まで一気通貫でリードできる自走力が評価されています。")
     return "\n".join(lines)
+
+
+def ai_strengths_and_pr(schema: dict, model: Optional[str] = None) -> Optional[dict]:
+    """Use OpenAI to generate strengths and self-PR text. Returns dict or None on failure."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return None
+    client = OpenAI(api_key=api_key)
+    model_name = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+    sys_prompt = (
+        "You are a Japanese career branding assistant. Given a JSON schema of a project, "
+        "write highly positive but credible text for 自分の強み (strengths) and 自己PR (self promotion). "
+        "Return JSON only with keys 自分の強み and 自己PR. Keep it concise: 3-6 sentences each."
+    )
+
+    user_prompt = """
+以下は候補者のプロジェクトスキーマです。日本語で、過剰に高く評価する表現で「自分の強み」「自己PR」を作成してください。
+- トーン: ポジティブ、リーダーシップ・再現性・専門性を強調。
+- 文字数目安: 各3〜6文。
+- JSONのみ返してください。説明や前置きは禁止。
+
+スキーマ:
+{schema}
+""".format(schema=json.dumps(schema, ensure_ascii=False))
+
+    req_kwargs = {
+        "model": model_name,
+        "messages": [
+            {"role": "system", "content": sys_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+    }
+    # gpt-5系はtemperature固定のため指定しない
+    if not model_name.lower().startswith("gpt-5"):
+        req_kwargs["temperature"] = 0.6
+
+    try:
+        resp = client.chat.completions.create(**req_kwargs)
+        content = resp.choices[0].message.content or "{}"
+        return json.loads(content)
+    except Exception:
+        return None
 
 
 def _format_period_jp(val: str) -> str:
@@ -574,9 +614,13 @@ async def extract(
         schema = parse_to_schema(merged)
         ai_error = str(e)
 
-    # Auto-fill strengths / self-PR if missing
+    # Auto-fill strengths / self-PR using OpenAI if available; fallback to heuristic
     try:
         if schema and isinstance(schema, dict):
+            ai_strengths = ai_strengths_and_pr(schema, model=model_used)
+            if ai_strengths:
+                schema.setdefault("自分の強み", ai_strengths.get("自分の強み"))
+                schema.setdefault("自己PR", ai_strengths.get("自己PR"))
             if not schema.get("自分の強み"):
                 schema["自分の強み"] = build_strengths(schema)
             if not schema.get("自己PR"):

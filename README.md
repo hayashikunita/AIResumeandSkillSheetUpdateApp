@@ -38,7 +38,7 @@ npm run dev -- --host --port 3000
 ### エンドポイント
 - `GET /health` … ヘルスチェック
 - `POST /extract` … ファイルアップロード（複数可）→ 全ファイルを1件のJSONスキーマに要約して返却。PDF/Word/Excel/TXT/画像(PNG/JPG/TIFF)と、自由入力テキスト(`manual_text`)をサポート。`data/temp/<timestamp>/items.json` と `schema.json` を必ず保存します（`save_schema_file` は後方互換用）。モデルは `OPENAI_MODEL` またはクエリ `model` で上書き可能。
-- 抽出時にスキーマへ「自分の強み」「自己PR」を自動生成して埋め込みます（抽出済みの同名フィールドがあれば上書きしません）。
+- 抽出時にスキーマへ「自分の強み」「自己PR」を自動生成して埋め込みます（OpenAI APIキーがある場合はChatGPTで生成し、キーが無い/失敗時は簡易ルールで補完。同名フィールドが既にあれば保持）。
 - `GET /latest-schema` … `data/temp` 最新の `schema.json` を返却。
 - `POST /generate/text` … スキーマからテキスト素案を生成し、`/download/{ts}/generated_text.txt` を返す。
 - `POST /generate/resume` … スキーマから職務経歴書 DOCX を生成し、`/download/{ts}/resume.docx` を返す。
